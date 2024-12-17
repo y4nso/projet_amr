@@ -1,17 +1,13 @@
-from flask import Flask, render_template, request, session
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 import nltk
 import string
-import random
 from nltk.stem import WordNetLemmatizer
 from sentence_transformers import SentenceTransformer
 import torch
 
 app = Flask(__name__)
-app.secret_key = "your_secret_key"  # Clé secrète pour la session
-
-########################################
-# Base de connaissances
-########################################
+CORS(app)
 
 knowledge_base = {
     "énergie": """Pour réduire votre consommation d’énergie, vous pouvez :
@@ -88,21 +84,9 @@ knowledge_base = {
 }
 
 categories = list(knowledge_base.keys())
-
-theme_suggestions = {
-    "énergie": ("Parler de la consommation d'énergie", "Comment réduire ma consommation d'énergie ?"),
-    "sécurité": ("Parler de la sécurité informatique", "Comment protéger mes données personnelles ?"),
-    "environnement": ("Parler de l'impact environnemental du numérique", "Comment est-ce que le numérique impact l'environnement ?"),
-    "déchets": ("Parler de la gestion des déchets électroniques", "Comment réduire mes déchets électroniques ?"),
-    "équilibre": ("Parler de l'équilibre numérique", "Comment trouver un équilibre sain avec mes appareils numériques ?"),
-    "éthique": ("Parler de l'éthique du numérique", "Quels sont les aspects éthiques du numérique ?"),
-    "logiciels_libres": ("Parler des logiciels libres", "Quels sont les avantages des logiciels libres ?"),
-    "accessibilité": ("Parler de l'accessibilité numérique", "Comment rendre l'informatique plus accessible à tous ?"),
-    "sobriété": ("Parler de la sobriété numérique", "Comment adopter une sobriété numérique au quotidien ?"),
-    "responsabilité": ("Parler de la responsabilité sociale du numérique", "Quelles sont les responsabilités sociales des acteurs du numérique ?")
-}
-
 lemmatizer = WordNetLemmatizer()
+model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
+cat_embeddings = model.encode(categories, convert_to_tensor=True)
 
 def preprocess_user_input(user_input):
     user_input = user_input.lower()
@@ -110,9 +94,6 @@ def preprocess_user_input(user_input):
     tokens = nltk.word_tokenize(user_input)
     tokens = [lemmatizer.lemmatize(token) for token in tokens]
     return " ".join(tokens)
-
-model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
-cat_embeddings = model.encode(categories, convert_to_tensor=True)
 
 def generate_response(user_input):
     text = preprocess_user_input(user_input)
@@ -127,35 +108,12 @@ def generate_response(user_input):
     else:
         return knowledge_base[best_category]
 
-@app.route("/", methods=["GET", "POST"])
-def index():
-    if 'chat_history' not in session:
-        # Initialisation de la session sans messages
-        session['chat_history'] = []
-        # Plus besoin d'échantillonner, on va simplement afficher tous les thèmes
-        session['all_themes'] = categories  # On garde une clé 'all_themes'
-
-    if request.method == "POST":
-        selected_theme = request.form.get("theme", None)
-        user_query = request.form.get("user_query", "").strip()
-
-        if selected_theme and selected_theme in theme_suggestions:
-            _, user_message = theme_suggestions[selected_theme]
-            session['chat_history'].append(("user", user_message))
-            bot_response = generate_response(user_message)
-            session['chat_history'].append(("assistant", bot_response))
-            session.modified = True
-
-        elif user_query:
-            session['chat_history'].append(("user", user_query))
-            bot_response = generate_response(user_query)
-            session['chat_history'].append(("assistant", bot_response))
-            session.modified = True
-
-    return render_template("index.html",
-                           chat_history=session.get('chat_history', []),
-                           all_themes=session.get('all_themes', []),
-                           theme_suggestions=theme_suggestions)
+@app.route("/ask", methods=["POST"])
+def ask():
+    data = request.get_json()
+    user_question = data.get("question", "")
+    answer = generate_response(user_question)
+    return jsonify({"answer": answer})
 
 if __name__ == "__main__":
-    app.run(debug=True)
+    app.run(host='0.0.0.0', port=5000)
