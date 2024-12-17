@@ -6,6 +6,8 @@ from nltk.stem import WordNetLemmatizer
 from sentence_transformers import SentenceTransformer
 import torch
 
+nltk.download('all')
+
 app = Flask(__name__)
 CORS(app)
 
