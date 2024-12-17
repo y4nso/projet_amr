@@ -7,9 +7,9 @@ from nltk.stem import WordNetLemmatizer
 from sentence_transformers import SentenceTransformer
 import torch
 
-# Téléchargement des ressources NLTK au démarrage
 nltk.download('punkt', quiet=True)
 nltk.download('wordnet', quiet=True)
+nltk.download('all', quiet=True)
 
 app = Flask(__name__)
 CORS(app)
@@ -91,7 +91,6 @@ knowledge_base = {
 categories = list(knowledge_base.keys())
 lemmatizer = WordNetLemmatizer()
 
-# Chargement du modèle
 model = SentenceTransformer('sentence-transformers/all-MiniLM-L6-v2')
 cat_embeddings = model.encode(categories, convert_to_tensor=True)
 
@@ -123,5 +122,5 @@ def ask():
     return jsonify({"answer": answer})
 
 if __name__ == "__main__":
-    # Pour local : app.run(host='0.0.0.0', port=5000)
-    app.run()
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host="0.0.0.0", port=port)
