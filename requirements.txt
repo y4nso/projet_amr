@@ -3,4 +3,3 @@ Flask-Cors
 nltk
 sentence-transformers
 torch
-gunicorn
